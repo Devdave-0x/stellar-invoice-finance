@@ -1,6 +1,18 @@
 use soroban_sdk::{contracttype, Address, Bytes, String, Symbol, Vec};
 
-/// Invoice lifecycle status
+/// Invoice lifecycle status.
+///
+/// Allowed state transitions:
+/// ```text
+/// Created → Listed → Funded → Repaid
+///                           ↘ Defaulted
+/// ```
+///
+/// - `Created`   — invoice NFT minted; not yet listed on the marketplace.
+/// - `Listed`    — invoice is on the marketplace and accepting investor funding.
+/// - `Funded`    — 100 % of the asking price collected; funds released to the SME.
+/// - `Repaid`    — SME has repaid the full face value; yield distributed to investors.
+/// - `Defaulted` — repayment deadline passed without full repayment.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum InvoiceStatus {
@@ -11,7 +23,20 @@ pub enum InvoiceStatus {
     Defaulted,
 }
 
-/// Risk tier assigned by verifiers
+/// Risk tier assigned by verifiers.
+///
+/// Derived from the numeric `risk_score` (0–100) stored on the invoice and in
+/// the risk registry. Lower ordinal = lower risk.
+///
+/// | Tier | Score Range | Typical Discount |
+/// |------|-------------|-----------------|
+/// | AAA  | 0–20        | 2 %–4 %         |
+/// | AA   | 21–40       | 3 %–5 %         |
+/// | A    | 41–60       | 4 %–8 %         |
+/// | B    | 61–80       | 7 %–12 %        |
+/// | C    | 81–100      | 12 %+           |
+///
+/// See [`docs/DISCOUNT_RATE_GUIDE.md`] for pricing guidance.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RiskTier {
