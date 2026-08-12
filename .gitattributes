@@ -1,0 +1,37 @@
+# Git attributes — normalize line endings and set diff drivers
+
+# Default: normalize all text files to LF in the repo
+* text=auto eol=lf
+
+# Rust source
+*.rs text eol=lf
+*.toml text eol=lf
+
+# Web / SDK
+*.ts text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+
+# Shell scripts
+*.sh text eol=lf
+
+# Docs and config
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.env text eol=lf
+
+# Makefile must use tabs
+Makefile text eol=lf
+
+# Binary files — do not modify
+*.wasm binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+
+# Mark generated lock files as non-diffable in PRs
+Cargo.lock -diff
+package-lock.json -diff
