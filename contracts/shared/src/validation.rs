@@ -166,6 +166,19 @@ pub fn require_non_empty_string(s: &String) -> Result<(), KoraError> {
     Ok(())
 }
 
+/// Require a byte value to have an exact length.
+///
+/// Fixed-width byte values such as SHA-256 hashes must be validated before
+/// they are persisted or used as map keys. Keeping this guard in the shared
+/// validation module prevents contracts from silently accepting truncated or
+/// oversized identifiers.
+pub fn require_exact_length(bytes: &Bytes, expected: u32) -> Result<(), KoraError> {
+    if bytes.len() != expected {
+        return Err(KoraError::InvalidLength);
+    }
+    Ok(())
+}
+
 /// Maximum supported IPFS CID length in bytes.
 const CID_MAX_LEN: u32 = 128;
 

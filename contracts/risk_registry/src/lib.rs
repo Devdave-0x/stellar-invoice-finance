@@ -8,7 +8,7 @@ use kora_shared::{
     types::SmeProfile,
     validation::{require_exact_length, require_valid_risk_score, UPGRADE_TIMELOCK_DELAY},
 };
-use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Bytes, BytesN, Env, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, Vec};
 
 // ── TTL constants (in ledgers; ~5s per ledger on Stellar) ────────────────────
 /// ~30 days worth of ledgers for persistent SME/verifier data
