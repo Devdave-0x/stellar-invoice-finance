@@ -6,7 +6,7 @@ use kora_shared::{
     events,
     reentrancy::ReentrancyGuard,
     types::{Listing, RiskTier},
-    validation::{bps_of_normalized, require_non_zero_amount, require_valid_fee_bps, safe_add, safe_sub, UPGRADE_TIMELOCK_DELAY},
+    validation::{bps_of_normalized, require_non_zero_amount, require_valid_fee_bps, require_within_max_amount, safe_add, safe_sub, UPGRADE_TIMELOCK_DELAY},
 };
 use soroban_sdk::{contract, contractimpl, contracttype, token, Address, BytesN, Env};
 
@@ -24,6 +24,7 @@ pub enum DataKey {
     FinancingPool,
     Treasury,
     AccessControl,
+    RiskRegistry,
     FeeBps,
     Listing(u64),
     WhitelistedToken(Address),
@@ -34,6 +35,9 @@ pub enum DataKey {
     Contribution(u64, Address),
     /// Refund claimed flag
     RefundClaimed(u64, Address),
+    Referrer(u64),
+    CancellationRequest(u64),
+    CancellationConfirmed(u64),
 }
 
 // ── Config struct ─────────────────────────────────────────────────────────────
@@ -74,13 +78,13 @@ impl MarketplaceContract {
             return Err(KoraError::AlreadyInitialized);
         }
         require_valid_fee_bps(fee_bps)?;
-        require_valid_fee_bps(referrer_split_bps)?;
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::InvoiceNft, &invoice_nft);
         env.storage().instance().set(&DataKey::FinancingPool, &financing_pool);
         env.storage().instance().set(&DataKey::Treasury, &treasury);
         env.storage().instance().set(&DataKey::FeeBps, &fee_bps);
         env.storage().instance().set(&DataKey::AccessControl, &access_control);
+        env.storage().instance().set(&DataKey::RiskRegistry, &risk_registry);
         let config = MarketplaceConfig {
             admin,
             invoice_nft,
@@ -89,7 +93,7 @@ impl MarketplaceContract {
             access_control,
             risk_registry,
             fee_bps,
-            referrer_split_bps,
+            referrer_split_bps: 0,
         };
         env.storage().instance().set(&DataKey::Config, &config);
         Ok(())
@@ -738,7 +742,11 @@ impl MarketplaceContract {
             .instance()
             .get(&DataKey::FeeBps)
             .ok_or(KoraError::NotInitialized)?;
-        let risk_registry: Address = Address::generate(env);
+        let risk_registry: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::RiskRegistry)
+            .ok_or(KoraError::NotInitialized)?;
 
         let config = MarketplaceConfig {
             admin,
