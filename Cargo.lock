@@ -779,6 +779,7 @@ dependencies = [
  "kora-access-control",
  "kora-financing-pool",
  "kora-invoice-nft",
+ "kora-risk-registry",
  "kora-shared",
  "kora-treasury",
  "soroban-sdk",
