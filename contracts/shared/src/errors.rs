@@ -1,6 +1,10 @@
 use soroban_sdk::contracterror;
 
-#[contracterror]
+// The shared error enum is imported by several contracts. Its complete
+// specification is larger than the Soroban metadata envelope, so exporting
+// it from this support crate would make every dependent contract fail to
+// compile. Individual contract crates expose their callable specifications.
+#[contracterror(export = false)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum KoraError {
@@ -70,7 +74,7 @@ pub enum KoraError {
     // Distinct error for empty bytes (semantically different from EmptyString)
     EmptyBytes = 97,
     // Field value exceeds the allowed maximum length
-    FieldTooLong = 95,
+    FieldTooLong = 103,
     // Reentrancy guard triggered
     Reentrancy = 98,
     // Byte slice has the wrong length (e.g. debtor_hash must be exactly 32 bytes)
@@ -80,7 +84,7 @@ pub enum KoraError {
     UpgradeTimelockNotElapsed = 101,
     // Parameter governance
     ParameterProposalNotFound = 110,
-    ParameterProposalAlreadyExecuted = 111,
+    ParameterProposalExecuted = 111,
     NotMultisigSigner = 112,
     AlreadyVoted = 113,
     GovernanceThresholdNotMet = 114,
@@ -91,4 +95,16 @@ pub enum KoraError {
     // Marketplace two-phase cancellation
     CancellationPending = 118,
     NoCancellationPending = 119,
+    // Multisig action lifecycle
+    InvalidThreshold = 120,
+    ProposalNotFound = 121,
+    ProposalAlreadyExecuted = 122,
+    ProposalExpired = 123,
+    AlreadyApproved = 124,
+    ThresholdNotMet = 125,
+    MultisigNotConfigured = 126,
+    SignerNotFound = 127,
+    CreditLimitExceeded = 128,
+    NotInvoiceOwner = 129,
+    CurrencyNotAllowed = 130,
 }

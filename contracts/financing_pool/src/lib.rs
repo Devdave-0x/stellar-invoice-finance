@@ -3,7 +3,7 @@
 use kora_shared::{
     errors::KoraError,
     events,
-    types::{Pool, Position},
+    types::{EarlySettlementOffer, Pool, Position, PositionSaleOffer},
     validation::{bps_of, bps_of_normalized, UPGRADE_TIMELOCK_DELAY},
 };
 use soroban_sdk::{
@@ -719,20 +719,6 @@ impl FinancingPoolContract {
         if pool.is_closed {
             return Err(KoraError::PoolAlreadyClosed);
         }
-
-    /// Paginated view of investor positions for an invoice.
-    ///
-    /// Returns at most `limit` positions starting at `offset` (0-based index
-    /// into the position list ordered by investor address key).  An `offset`
-    /// beyond the last position returns an empty vec; `limit` is capped at 100
-    /// to bound per-call CPU cost.
-    pub fn get_positions_page(
-        env: Env,
-        invoice_id: u64,
-        offset: u32,
-        limit: u32,
-    ) -> Vec<Position> {
-        let limit = limit.min(100);
         let positions: Map<Address, Position> = env
             .storage()
             .persistent()
@@ -762,6 +748,37 @@ impl FinancingPoolContract {
 
         events::position_listed_for_sale(&env, invoice_id, &seller, price);
         Ok(())
+    }
+
+    /// Paginated view of investor positions for an invoice.
+    ///
+    /// Returns at most `limit` positions starting at `offset` (0-based index
+    /// into the position list ordered by investor address key).  An `offset`
+    /// beyond the last position returns an empty vec; `limit` is capped at 100
+    /// to bound per-call CPU cost.
+    pub fn get_positions_page(
+        env: Env,
+        invoice_id: u64,
+        offset: u32,
+        limit: u32,
+    ) -> Vec<Position> {
+        let limit = limit.min(100);
+        let positions: Map<Address, Position> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Positions(invoice_id))
+            .unwrap_or_else(|| Map::new(&env));
+
+        let all: Vec<Position> = positions.values();
+        let total = all.len();
+        let start = offset.min(total) as usize;
+        let end = (start + limit as usize).min(total as usize);
+
+        let mut page: Vec<Position> = Vec::new(&env);
+        for i in start..end {
+            page.push_back(all.get(i as u32).unwrap());
+        }
+        page
     }
 
     /// Purchase an investor position from the secondary market.
@@ -824,18 +841,6 @@ impl FinancingPoolContract {
 
         events::position_sold(&env, invoice_id, &seller, &buyer, offer.price);
         Ok(())
-            .unwrap_or(Map::new(&env));
-
-        let all: Vec<Position> = positions.values();
-        let total = all.len();
-        let start = offset.min(total) as usize;
-        let end = (start + limit as usize).min(total as usize);
-
-        let mut page: Vec<Position> = Vec::new(&env);
-        for i in start..end {
-            page.push_back(all.get(i as u32).unwrap());
-        }
-        page
     }
 
     /// Returns the total number of investor positions recorded for an invoice.
@@ -846,6 +851,19 @@ impl FinancingPoolContract {
             .get(&DataKey::Positions(invoice_id))
             .unwrap_or(Map::new(&env));
         positions.len()
+    }
+
+    /// Return the total amount currently committed across all open pools for
+    /// `token`.
+    ///
+    /// This value is maintained when positions are recorded and settled. It
+    /// gives indexers, risk dashboards, and operators a cheap way to inspect
+    /// protocol-wide exposure without scanning every invoice pool.
+    pub fn get_aggregate_funded(env: Env, token: Address) -> i128 {
+        env.storage()
+            .instance()
+            .get(&DataKey::AggregateFunded(token))
+            .unwrap_or(0)
     }
 
     // ── Upgrade ────────────────────────────────────────────────────────────────
@@ -950,7 +968,7 @@ impl FinancingPoolContract {
         // to reject operations without a valid price.
         let pool_currency = Symbol::new(env, "USDC");
 
-        oracle_client.convert(&amount, invoice_currency, &pool_currency)
+        Ok(oracle_client.convert(&amount, invoice_currency, &pool_currency))
     }
 }
 
@@ -970,6 +988,7 @@ mod tests {
         let nft = Address::generate(&env);
         let treasury = Address::generate(&env);
         let access_control = Address::generate(&env);
+        let risk_registry = Address::generate(&env);
         let oracle = Address::generate(&env);
         client
             .initialize(&admin, &nft, &risk_registry, &treasury, &access_control, &200u32, &oracle)
@@ -1004,6 +1023,7 @@ mod tests {
         let nft = Address::generate(&env);
         let treasury = Address::generate(&env);
         let ac = Address::generate(&env);
+        let rr = Address::generate(&env);
         let oracle = Address::generate(&env);
         let result =
             client.try_initialize(&admin, &nft, &rr, &treasury, &ac, &10_001u32, &oracle);
@@ -1478,8 +1498,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-}
-
     #[test]
     fn test_repay_amount_exceeds_max_amount() {
         let (env, _admin, _nft, _treasury, _ac, client) = setup();
@@ -1521,7 +1539,7 @@ mod proptests {
         ) {
             let pool = Pool {
                 invoice_id: 1,
-                token: soroban_sdk::Address::from_str(&soroban_sdk::Env::default(), "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"),
+                token: soroban_sdk::Address::generate(&soroban_sdk::Env::default()),
                 total_funded: 0,
                 face_value,
                 repaid_amount: face_value,

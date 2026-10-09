@@ -211,6 +211,7 @@ impl InvoiceNftContract {
                         currency: old.currency,
                         due_date: old.due_date,
                         ipfs_cid: old.ipfs_cid,
+                        metadata_hash: Bytes::new(&env),
                         risk_score: old.risk_score,
                         risk_tier: old.risk_tier,
                         status: old.status,
@@ -800,6 +801,15 @@ impl InvoiceNftContract {
             PERSISTENT_TTL_BUMP,
         );
     }
+
+    /// Extend the TTL of arbitrary persistent invoice metadata.
+    fn bump_persistent(env: &Env, key: &DataKey) {
+        env.storage().persistent().extend_ttl(
+            key,
+            PERSISTENT_TTL_THRESHOLD,
+            PERSISTENT_TTL_BUMP,
+        );
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -1160,16 +1170,6 @@ mod tests {
         assert_eq!(result.unwrap_err().unwrap(), KoraError::InvalidInvoiceStatus);
     }
 
-        let id = client.mint_invoice(
-            &sme,
-            &debtor_hash,
-            &1_000_000_000i128,
-            &Symbol::new(&env, "USDC"),
-            &due_date,
-            &ipfs_cid,
-            &10u32, &None,
-        );
-
     #[test]
     fn test_set_funded_invalid_status_fails() {
         let (env, _admin, client) = setup();
@@ -1199,6 +1199,11 @@ mod tests {
             &ipfs_cid,
             &10u32, &None,
         );
+
+        let pool = Address::generate(&env);
+        let result = client.try_set_repaid(&pool, &id);
+        assert_eq!(result.unwrap_err().unwrap(), KoraError::InvalidInvoiceStatus);
+    }
 
     #[test]
     fn test_set_funded_idempotent_fails() {
@@ -1487,6 +1492,7 @@ mod tests {
         let pool = Address::generate(&env);
         client.set_funded(&pool, &id);
         client.set_repaid(&pool, &id);
+    }
 
     #[test]
     fn test_invoice_count_increments() {
@@ -1501,30 +1507,10 @@ mod tests {
     #[test]
     fn test_invalid_status_transition_created_to_funded_fails() {
         let (env, _admin, client) = setup();
-        let sme = Address::generate(&env);
-        let debtor_hash = Bytes::from_slice(&env, &[1u8; 32]);
-        let ipfs_cid = String::from_str(
-            &env,
-            "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
-        );
-        let due_date = env.ledger().timestamp() + 86_400;
-
-        let id = client.mint_invoice(
-            &sme,
-            &debtor_hash,
-            &1_000_000_000i128,
-            &Symbol::new(&env, "USDC"),
-            &due_date,
-            &ipfs_cid,
-            &10u32, &None,
-        );
-        let id2 = client.mint_invoice(
-            &sme, &debtor_hash, &2_000_000_000i128,
-            &Symbol::new(&env, "EURC"), &due_date, &ipfs_cid, &20u32, &None,
-        );
-
-        assert_eq!(client.get_invoice(&id1).currency, Symbol::new(&env, "USDC"));
-        assert_eq!(client.get_invoice(&id2).currency, Symbol::new(&env, "EURC"));
+        let id = mint_default(&env, &client, 10u32);
+        let pool = Address::generate(&env);
+        let result = client.try_set_funded(&pool, &id);
+        assert_eq!(result.unwrap_err().unwrap(), KoraError::InvalidInvoiceStatus);
     }
 
     #[test]

@@ -44,7 +44,7 @@ propose_parameter_change ──▶ vote_parameter_change ──▶ execute_param
 | `NotMultisigSigner` / `SignerNotFound` | caller is not in the signer set |
 | `InvalidParameterValue` | proposed value is out of range |
 | `ParameterProposalNotFound` | unknown proposal id |
-| `ParameterProposalAlreadyExecuted` | proposal already executed |
+| `ParameterProposalExecuted` | proposal already executed |
 | `AlreadyVoted` | signer already voted on this proposal |
 | `GovernanceThresholdNotMet` | not enough approvals to execute |
 | `GovernanceTimelockNotElapsed` | timelock has not yet elapsed |

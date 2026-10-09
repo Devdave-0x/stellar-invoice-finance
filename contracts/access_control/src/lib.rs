@@ -506,7 +506,7 @@ impl AccessControlContract {
             .ok_or(KoraError::ParameterProposalNotFound)?;
 
         if proposal.executed {
-            return Err(KoraError::ParameterProposalAlreadyExecuted);
+            return Err(KoraError::ParameterProposalExecuted);
         }
         for i in 0..proposal.approvals.len() {
             if proposal.approvals.get(i).unwrap() == signer {
@@ -545,7 +545,7 @@ impl AccessControlContract {
             .ok_or(KoraError::ParameterProposalNotFound)?;
 
         if proposal.executed {
-            return Err(KoraError::ParameterProposalAlreadyExecuted);
+            return Err(KoraError::ParameterProposalExecuted);
         }
         if proposal.approvals.len() < config.threshold {
             return Err(KoraError::GovernanceThresholdNotMet);
@@ -1502,8 +1502,6 @@ fn test_role_override() {
         let result = client.try_initialize(&admin);
         assert!(result.is_err());
     }
-}
-
     #[test]
     fn test_interleaved_pause_and_role_operations_remain_independent() {
         // Long interleaved sequence: grant → pause → revoke → unpause → re-grant
